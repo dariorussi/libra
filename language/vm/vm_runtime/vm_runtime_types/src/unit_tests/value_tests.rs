@@ -5,65 +5,102 @@ use super::*;
 
 #[test]
 fn test_simple_mutate() {
-    let v = Local::u64(1);
-    let v_ref = v.borrow_local().unwrap();
-    let v2 = Local::u64(2);
-    v_ref.mutate_reference(v2.value().unwrap());
-    assert!(v.equals(Local::u64(2)).unwrap());
+    let mut locals = Locals::new(1);
+    locals
+        .store_loc(0, Value::u64(1))
+        .expect("Local 0 must be available");
+    let loc_ref = locals.borrow_loc(0).expect("Local 0 must be available");
+    loc_ref
+        .value_as::<Reference>()
+        .expect("Value must be a Reference")
+        .write_value(Value::u64(2));
+
+    assert!(locals
+        .copy_loc(0)
+        .expect("Local 0 must be available")
+        .equals(&Value::u64(2))
+        .expect("Equals must succeed"));
 }
 
 #[test]
 fn test_cloned_value() {
-    let v = Local::u64(1);
-    let v2 = v.clone();
+    let mut locals = Locals::new(1);
+    locals
+        .store_loc(0, Value::u64(1))
+        .expect("Local 0 must be available");
+    let loc_copy = locals.copy_loc(0).expect("Local 0 must be available");
 
-    let v_ref = v.borrow_local().unwrap();
-    let v3 = Local::u64(2);
-    v_ref.mutate_reference(v3.value().unwrap());
-    assert!(v.equals(Local::u64(2)).unwrap());
-    assert!(v2.equals(Local::u64(1)).unwrap());
+    let loc_ref = locals.borrow_loc(0).expect("Local 0 must be available");
+    loc_ref
+        .value_as::<Reference>()
+        .expect("Value must be a Reference")
+        .write_value(Value::u64(2));
+
+    assert!(locals
+        .copy_loc(0)
+        .expect("Local 0 must be available")
+        .equals(&Value::u64(2))
+        .expect("Equals must succeed"));
+    assert!(loc_copy
+        .equals(&Value::u64(1))
+        .expect("Equals must succeed"));
 }
 
 #[test]
 fn test_cloned_references() {
-    let v = Local::u64(1);
+    let mut locals = Locals::new(1);
+    locals
+        .store_loc(0, Value::u64(1))
+        .expect("Local 0 must be available");
 
-    let v_ref = v.borrow_local().unwrap();
-    let v_ref_clone = v_ref.clone();
+    let loc_ref = locals.borrow_loc(0).expect("Local 0 must be available");
+    let loc_ref_clone = loc_ref.clone();
 
-    let v3 = Local::u64(2);
-    v_ref.mutate_reference(v3.value().unwrap());
-    assert!(v.equals(Local::u64(2)).unwrap());
-    assert!(v_ref_clone
-        .read_reference()
-        .unwrap()
-        .equals(Local::u64(2))
-        .unwrap());
+    loc_ref
+        .value_as::<Reference>()
+        .expect("Value must be a Reference")
+        .write_value(Value::u64(2));
+
+    assert!(locals
+        .copy_loc(0)
+        .expect("Local 0 must be available")
+        .equals(&Value::u64(2))
+        .expect("Equals must succeed"));
+    assert!(loc_ref_clone
+        .equals(&locals.borrow_loc(0).expect("Local 0 must be available"))
+        .expect("Equals must succeed"));
 }
 
 #[test]
 fn test_mutate_struct() {
-    let v_ref = Local::Ref(MutVal::new(Value::Struct(
-        vec![Local::u64(1), Local::u64(2)]
-            .into_iter()
-            .map(|v| v.value().unwrap())
-            .collect(),
-    )));
+    let mut locals = Locals::new(1);
+    locals
+        .store_loc(
+            0,
+            Value::struct_(Struct::new(vec![Value::u64(1), Value::u64(2)])),
+        )
+        .expect("Local 0 must be available");
 
-    let field_ref = v_ref.borrow_field(1).unwrap();
+    let loc_ref = locals.borrow_loc(0).expect("Local 0 must be available");
+    let field_ref = loc_ref
+        .value_as::<Reference>()
+        .expect("Value must be a Reference")
+        .borrow_field(1)
+        .expect("Field must exist");
 
-    let v2 = Local::u64(3);
-    field_ref.mutate_reference(v2.value().unwrap());
+    field_ref
+        .value_as::<Reference>()
+        .unwrap()
+        .write_value(Value::u64(3));
 
-    let v_after = Local::struct_(
-        vec![Local::u64(1), Local::u64(3)]
-            .into_iter()
-            .map(|v| v.value().unwrap())
-            .collect(),
-    );
-    assert!(v_ref
-        .read_reference()
-        .expect("must be a reference")
-        .equals(v_after)
-        .unwrap());
+    let v_after = Value::struct_(Struct::new(vec![Value::u64(1), Value::u64(3)]));
+    assert!(locals
+        .borrow_loc(0)
+        .expect("Local 0 must be available")
+        .value_as::<Reference>()
+        .expect("Must be a Reference")
+        .copy_value()
+        .expect("Must be a valid local")
+        .equals(&v_after)
+        .expect("Equals must succeed"));
 }

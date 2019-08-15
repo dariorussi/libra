@@ -8,7 +8,6 @@ use crate::{
 };
 use types::{account_address::ADDRESS_LENGTH, transaction::MAX_TRANSACTION_SIZE_IN_BYTES};
 use vm::{access::ModuleAccess, errors::*, file_format::Bytecode, gas_schedule::*};
-use vm_runtime_types::value::Local;
 
 /// Holds the state of the gas meter.
 pub struct GasMeter {
@@ -174,7 +173,7 @@ impl GasMeter {
             }
             // Note that a moveLoc incurs a copy overhead
             Bytecode::CopyLoc(local_idx) | Bytecode::MoveLoc(local_idx) => {
-                let local = stk.top_frame()?.get_local(*local_idx)?;
+                let local = stk.top_frame()?.copy_loc(*local_idx)?;
                 let size = local.size();
                 let default_gas = static_cost_instr(instr, size);
                 Self::gas_of(default_gas)
@@ -227,7 +226,7 @@ impl GasMeter {
                 let mut default_gas = static_cost_instr(instr, size);
                 // Determine if the reference is global. If so charge for any expansion of global
                 // memory along with the write operation that will be incurred.
-                if let Local::GlobalRef(_) = ref_val {
+                if ref_val.is_global_ref() {
                     // Charge for any memory expansion
                     let new_val_size = ref_val.size();
                     let size_difference = if new_val_size.app(&size, |new_vl_size, size| new_vl_size > size) {

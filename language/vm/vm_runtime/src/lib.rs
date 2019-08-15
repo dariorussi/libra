@@ -138,6 +138,7 @@ use types::{
 };
 use vm::{errors::VMInvariantViolation, IndexKind};
 
+#[allow(dead_code)]
 pub(crate) fn bounded_fetch<T>(
     pool: &[T],
     idx: usize,

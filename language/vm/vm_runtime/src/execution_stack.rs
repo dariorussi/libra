@@ -8,14 +8,14 @@ use crate::{
 };
 use std::{fmt, marker::PhantomData};
 use vm::errors::*;
-use vm_runtime_types::value::{Local, MutVal};
+use vm_runtime_types::value::{Locals, Value};
 
 pub struct ExecutionStack<'alloc, 'txn, P>
 where
     'alloc: 'txn,
     P: ModuleCache<'alloc>,
 {
-    stack: Vec<Local>,
+    stack: Vec<Value>,
     function_stack: Vec<Frame<'txn, FunctionRef<'txn>>>,
     pub module_cache: P,
 
@@ -38,9 +38,12 @@ where
     }
 
     pub fn push_call(&mut self, function: FunctionRef<'txn>) -> VMResult<()> {
-        let callee_arg_size = function.arg_count();
-        let args = self.popn(callee_arg_size as u16)?;
-        self.function_stack.push(Frame::new(function, args));
+        let mut locals = Locals::new(function.local_count());
+        let arg_count = function.arg_count();
+        for i in 0..arg_count {
+            locals.store_loc(arg_count - i - 1, self.pop()?)?;
+        }
+        self.function_stack.push(Frame::new(function, locals));
         Ok(Ok(()))
     }
 
@@ -75,18 +78,18 @@ where
         Ok(self.top_frame()?.into())
     }
 
-    pub fn push(&mut self, value: Local) {
+    pub fn push(&mut self, value: Value) {
         self.stack.push(value)
     }
 
-    pub fn peek(&self) -> Result<&Local, VMInvariantViolation> {
+    pub fn peek(&self) -> Result<&Value, VMInvariantViolation> {
         Ok(self
             .stack
             .last()
             .ok_or(VMInvariantViolation::EmptyValueStack)?)
     }
 
-    pub fn peek_at(&self, index: usize) -> Result<&Local, VMInvariantViolation> {
+    pub fn peek_at(&self, index: usize) -> Result<&Value, VMInvariantViolation> {
         let size = self.stack.len();
         Ok(self
             .stack
@@ -94,7 +97,7 @@ where
             .ok_or(VMInvariantViolation::EmptyValueStack)?)
     }
 
-    pub fn pop(&mut self) -> Result<Local, VMInvariantViolation> {
+    pub fn pop(&mut self) -> Result<Value, VMInvariantViolation> {
         Ok(self
             .stack
             .pop()
@@ -103,16 +106,21 @@ where
 
     pub fn pop_as<T>(&mut self) -> VMResult<T>
     where
-        Option<T>: From<MutVal>,
+        Option<T>: From<Value>,
     {
         let top = self.pop()?.value_as();
-        Ok(top.ok_or(VMRuntimeError {
-            loc: self.location()?,
-            err: VMErrorKind::TypeError,
-        }))
+        match top {
+            Some(v) => Ok(Ok(v)),
+            None => {
+                Ok(Err(VMRuntimeError {
+                    loc: self.location()?,
+                    err: VMErrorKind::TypeError,
+                }))
+            }
+        }
     }
 
-    pub fn popn(&mut self, n: u16) -> Result<Vec<Local>, VMInvariantViolation> {
+    pub fn popn(&mut self, n: u16) -> Result<Vec<Value>, VMInvariantViolation> {
         let remaining_stack_size = self
             .stack
             .len()
@@ -126,16 +134,16 @@ where
         self.function_stack.len()
     }
 
-    pub fn set_stack(&mut self, stack: Vec<Local>) {
+    pub fn set_stack(&mut self, stack: Vec<Value>) {
         self.stack = stack;
     }
 
-    pub fn get_value_stack(&self) -> &Vec<Local> {
+    pub fn get_value_stack(&self) -> &Vec<Value> {
         &self.stack
     }
 
     pub fn push_frame(&mut self, func: FunctionRef<'txn>) {
-        self.function_stack.push(Frame::new(func, vec![]));
+        self.function_stack.push(Frame::new(func, Locals::new(0)));
     }
 }
 

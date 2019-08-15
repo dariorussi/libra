@@ -38,7 +38,7 @@ use vm_runtime::{
     data_cache::BlockDataCache,
     txn_executor::{TransactionExecutor, ACCOUNT_MODULE, BLOCK_MODULE, COIN_MODULE},
 };
-use vm_runtime_types::value::Local;
+use vm_runtime_types::value::Value;
 
 // The seed is arbitrarily picked to produce a consistent key. XXX make this more formal?
 const GENESIS_SEED: [u8; 32] = [42; 32];
@@ -344,7 +344,7 @@ pub fn encode_genesis_transaction_with_validator(
                 .execute_function(
                     &ACCOUNT_MODULE,
                     "mint_to_address",
-                    vec![Local::address(genesis_addr), Local::u64(INIT_BALANCE)],
+                    vec![Value::address(genesis_addr), Value::u64(INIT_BALANCE)],
                 )
                 .unwrap()
                 .unwrap();
@@ -353,7 +353,7 @@ pub fn encode_genesis_transaction_with_validator(
                 .execute_function(
                     &ACCOUNT_MODULE,
                     "rotate_authentication_key",
-                    vec![Local::bytearray(genesis_auth_key)],
+                    vec![Value::byte_array(genesis_auth_key)],
                 )
                 .unwrap()
                 .unwrap();

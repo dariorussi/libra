@@ -38,7 +38,7 @@ use vm_runtime::{
     loaded_data::function::{FunctionRef, FunctionReference},
     txn_executor::TransactionExecutor,
 };
-use vm_runtime_types::{native_functions::hash, value::Local};
+use vm_runtime_types::{native_functions::hash, value::Value};
 
 #[derive(Debug, StructOpt)]
 #[structopt(
@@ -190,7 +190,7 @@ macro_rules! bench_native {
                 let time = (0..$iters).fold(0, |acc, _| {
                     let before = Instant::now();
                     let mut args = VecDeque::new();
-                    args.push_front(Local::bytearray(stack_access.next_bytearray()));
+                    args.push_front(Value::byte_array(stack_access.next_bytearray()));
                     let _ = $function(args);
                     acc + before.elapsed().as_nanos()
                 });
